@@ -1,0 +1,14 @@
+(executable
+ (public_name pag)
+ (name main)
+ (preprocess
+  (pps ppx_deriving.std))
+ (ocamlopt_flags
+  (:standard "-O3"))
+ (libraries dynlink metaocaml flap)
+ (modes native))
+
+(env
+ (dev
+  (flags
+   (:standard -w -33 -w -37 -w -34 -w -32))))
