@@ -154,17 +154,21 @@ end
 open Core
 open Core_bench
 
-let parse_json _ =
-  let file = In_channel.read_all "/home/schrodingerzy/Downloads/paguroidea/benches/json/benches/twitter.json" in
+let benchmarks = ["twitter.json"; "random.json"]
+
+let parse_json x =
+  let filename = List.nth_exn benchmarks x in
+  let file = In_channel.read_all filename in
   Staged.stage (fun () -> Parser.parse file)
 
-let scan_json _ =
-  let file = In_channel.read_all "/home/schrodingerzy/Downloads/paguroidea/benches/json/benches/twitter.json" in
+let scan_json x =
+  let filename = List.nth_exn benchmarks x in
+  let file = In_channel.read_all filename in
   Staged.stage (fun () -> Scanner.scan file)
 
 
 let () = 
   Command_unix.run (Bench.make_command [
-    Bench.Test.create_indexed ~name:"parse_json" ~args:[0] parse_json;
-    Bench.Test.create_indexed ~name:"scan_json" ~args:[0] scan_json;
+    Bench.Test.create_indexed ~name:"parse_json" ~args:[0; 1] parse_json;
+    Bench.Test.create_indexed ~name:"scan_json" ~args:[0; 1] scan_json;
   ])
