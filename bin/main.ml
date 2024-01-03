@@ -91,8 +91,9 @@ end
 open Flap.Parse(Parser.Lex)
 
 let code = Codelib.close_code (Result.get_ok (compile Parser.Syntax.lexer Parser.Syntax.parser))
+let native_parser = Runnative.run_native code
 
-let parser = Runnative.run_native code
+let byte_parser = Runnative.run (Result.get_ok (compile Parser.Syntax.lexer Parser.Syntax.parser))
 
 (* json pretty print*)
 (* let rec to_string = function
@@ -108,12 +109,16 @@ let parser = Runnative.run_native code
 open Core
 open Core_bench
 
-let fused_json _ =
+let native_fused_json _ =
   let file = In_channel.read_all "/home/schrodingerzy/Downloads/paguroidea/benches/json/benches/twitter.json" in
-  Staged.stage (fun () -> parser file)
+  Staged.stage (fun () -> native_parser file)
+
+let byte_fused_json _ =
+  let file = In_channel.read_all "/home/schrodingerzy/Downloads/paguroidea/benches/json/benches/twitter.json" in
+  Staged.stage (fun () -> byte_parser file)
 
 let () = 
-  Command_unix.run (Bench.make_command [Bench.Test.create_indexed ~name:"fused_json" ~args:[
-        0
-      ]
-      fused_json;])
+  Command_unix.run (Bench.make_command [
+    Bench.Test.create_indexed ~name:"fused_json" ~args:[0] native_fused_json;
+    Bench.Test.create_indexed ~name:"byte_json" ~args:[0] byte_fused_json;
+  ])
