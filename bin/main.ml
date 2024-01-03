@@ -38,7 +38,7 @@ module Parser = struct
 
   module Syntax =
   struct 
-    open Flap.Parse(Lex)
+    include Flap.Parse(Lex)
     open Flap.Cd
 
     let lexer = Lex.[
@@ -60,7 +60,7 @@ module Parser = struct
     let comma    = Lex.Comma     /=> fun _ -> .<()>.
     let colon    = Lex.Colon     /=> fun _ -> .<()>.
     let string_   = Lex.String   /=> fun s -> dyn s
-    let str_lit   = Lex.String    /=> fun s -> .<`StringLit .~(dyn s)>.
+    let str_lit   = Lex.String   /=> fun s -> .<`StringLit .~(dyn s)>.
     let lsquare  = Lex.LSquare   /=> fun _ -> .<()>.
     let rsquare  = Lex.RSquare   /=> fun _ -> .<()>.
     let lbracket = Lex.LBracket  /=> fun _ -> .<()>.
@@ -86,39 +86,85 @@ module Parser = struct
         str_lit <|> number <|> null <|> true_ <|> false_  <|> obj <|> array
     )
   end
+  let code = Codelib.close_code (Result.get_ok (Syntax.compile Syntax.lexer Syntax.parser))
+  let parse = Runnative.run_native code
 end
 
-open Flap.Parse(Parser.Lex)
 
-let code = Codelib.close_code (Result.get_ok (compile Parser.Syntax.lexer Parser.Syntax.parser))
-let native_parser = Runnative.run_native code
+module Scanner = struct
+  module Lex =
+  struct 
+    include Parser.Lex
+  end
 
-let byte_parser = Runnative.run (Result.get_ok (compile Parser.Syntax.lexer Parser.Syntax.parser))
+  module Syntax =
+  struct 
+    include Flap.Parse(Lex)
+    open Flap.Cd
 
-(* json pretty print*)
-(* let rec to_string = function
-  | `StringLit s -> "\"" ^ s ^ "\""
-  | `Number n -> n
-  | `Null -> "null"
-  | `True -> "true"
-  | `False -> "false"
-  | `Object [] -> "{}"
-  | `Object ((k,v)::xs) -> "{" ^ k ^ ": " ^ (to_string v) ^ (List.fold_left (fun acc (k,v) -> acc ^ ", " ^ k ^ ": " ^ (to_string v)) "" xs) ^ "}"
-  | `Array [] -> "[]"
-  | `Array (x::xs) -> "[" ^ (to_string x) ^ (List.fold_left (fun acc x -> acc ^ ", " ^ (to_string x)) "" xs) ^ "]" *)
+    let lexer = Lex.[
+      lsquare,    Return LSquare;
+      rsquare,    Return RSquare;
+      lbracket,   Return LBracket;
+      rbracket,   Return RBracket;
+      comma,      Return Comma;
+      colon,      Return Colon;
+      lit_true,   Return True;
+      lit_false,  Return False;
+      null,       Return Null;
+      number,     Return Number;
+      string,     Return String;
+      whitespace, Skip;
+    ]
+
+    let (/=>) t f = tok t @@ fun s -> injv (f s)
+    let comma    = Lex.Comma     /=> fun _ -> .<()>.
+    let colon    = Lex.Colon     /=> fun _ -> .<()>.
+    let string_  = Lex.String    /=> fun _ -> .<()>.
+    let str_lit  = Lex.String    /=> fun _ -> .<()>.
+    let lsquare  = Lex.LSquare   /=> fun _ -> .<()>.
+    let rsquare  = Lex.RSquare   /=> fun _ -> .<()>.
+    let lbracket = Lex.LBracket  /=> fun _ -> .<()>.
+    let rbracket = Lex.RBracket  /=> fun _ -> .<()>.
+    let number   = Lex.Number    /=> fun _ -> .<()>.
+    let null     = Lex.Null      /=> fun _ -> .<()>.
+    let true_    = Lex.True      /=> fun _ -> .<()>.
+    let false_   = Lex.False     /=> fun _ -> .<()>.
+
+    let star e = fix @@ fun x -> (eps (injv .<()>.)
+                 <|> (e >>> x $ fun p -> let_ p @@ fun _ -> injv .<()>.))
+    let option e = (e $ fun x -> let_ x @@ fun _ -> injv .<()>.) <|> (eps (injv .<()>.))
+    let parser = (
+      fix @@ fun value -> 
+        let attr         = string_ >>> colon >>> value $ fun _ -> injv .<()>. in
+        let comma_tail x = comma >>> x $ snd in
+        let list x       = x >>> star (comma_tail x) $ fun _ -> injv .<()>. in
+        let obj          = lbracket >>> option (list attr) >>> rbracket $ 
+                          fun _ -> injv .<()>. in
+        let array        = lsquare >>> option (list value) >>> rsquare $
+                          fun _p -> injv .<()>. in
+        str_lit <|> number <|> null <|> true_ <|> false_  <|> obj <|> array
+    )
+  end
+  let code = Codelib.close_code (Result.get_ok (Syntax.compile Syntax.lexer Syntax.parser))
+  let scan = Runnative.run_native code
+end
+
+
 open Core
 open Core_bench
 
-let native_fused_json _ =
+let parse_json _ =
   let file = In_channel.read_all "/home/schrodingerzy/Downloads/paguroidea/benches/json/benches/twitter.json" in
-  Staged.stage (fun () -> native_parser file)
+  Staged.stage (fun () -> Parser.parse file)
 
-let byte_fused_json _ =
+let scan_json _ =
   let file = In_channel.read_all "/home/schrodingerzy/Downloads/paguroidea/benches/json/benches/twitter.json" in
-  Staged.stage (fun () -> byte_parser file)
+  Staged.stage (fun () -> Scanner.scan file)
+
 
 let () = 
   Command_unix.run (Bench.make_command [
-    Bench.Test.create_indexed ~name:"fused_json" ~args:[0] native_fused_json;
-    Bench.Test.create_indexed ~name:"byte_json" ~args:[0] byte_fused_json;
+    Bench.Test.create_indexed ~name:"parse_json" ~args:[0] parse_json;
+    Bench.Test.create_indexed ~name:"scan_json" ~args:[0] scan_json;
   ])
