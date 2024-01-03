@@ -133,11 +133,11 @@ module Scanner = struct
 
     let star e = fix @@ fun x -> (eps (injv .<()>.)
                  <|> (e >>> x $ fun p -> let_ p @@ fun _ -> injv .<()>.))
-    let option e = (e $ fun x -> let_ x @@ fun _ -> injv .<()>.) <|> (eps (injv .<()>.))
+    let option e = (e $ fun _ -> injv .<()>.) <|> (eps (injv .<()>.))
     let parser = (
       fix @@ fun value -> 
         let attr         = string_ >>> colon >>> value $ fun _ -> injv .<()>. in
-        let comma_tail x = comma >>> x $ snd in
+        let comma_tail x = comma >>> x $ fun _ -> injv .<()>. in
         let list x       = x >>> star (comma_tail x) $ fun _ -> injv .<()>. in
         let obj          = lbracket >>> option (list attr) >>> rbracket $ 
                           fun _ -> injv .<()>. in
