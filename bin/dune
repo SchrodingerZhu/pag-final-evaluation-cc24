@@ -7,4 +7,4 @@
   (:standard "-open" "Codelib"))
  (ocamlopt_flags
   (:standard "-O3"))
- (libraries dynlink metaocaml yojson flap))
+ (libraries dynlink metaocaml yojson flap core_bench core_unix.command_unix))

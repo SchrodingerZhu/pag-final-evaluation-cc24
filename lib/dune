@@ -1,0 +1,5 @@
+(library
+ (name "pag")
+ (preprocess
+  (pps ppx_deriving.ord ppx_deriving.show))
+ (libraries flap))

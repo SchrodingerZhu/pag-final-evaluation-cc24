@@ -95,7 +95,7 @@ let code = Codelib.close_code (Result.get_ok (compile Parser.Syntax.lexer Parser
 let parser = Runnative.run_native code
 
 (* json pretty print*)
-let rec to_string = function
+(* let rec to_string = function
   | `StringLit s -> "\"" ^ s ^ "\""
   | `Number n -> n
   | `Null -> "null"
@@ -104,8 +104,16 @@ let rec to_string = function
   | `Object [] -> "{}"
   | `Object ((k,v)::xs) -> "{" ^ k ^ ": " ^ (to_string v) ^ (List.fold_left (fun acc (k,v) -> acc ^ ", " ^ k ^ ": " ^ (to_string v)) "" xs) ^ "}"
   | `Array [] -> "[]"
-  | `Array (x::xs) -> "[" ^ (to_string x) ^ (List.fold_left (fun acc x -> acc ^ ", " ^ (to_string x)) "" xs) ^ "]"
+  | `Array (x::xs) -> "[" ^ (to_string x) ^ (List.fold_left (fun acc x -> acc ^ ", " ^ (to_string x)) "" xs) ^ "]" *)
+open Core
+open Core_bench
+
+let fused_json _ =
+  let file = In_channel.read_all "/home/schrodingerzy/Downloads/paguroidea/benches/json/benches/twitter.json" in
+  Staged.stage (fun () -> parser file)
 
 let () = 
-  print_endline (to_string (parser "{\"213\": 1, \"test\": [1, 2, 3, true, false, null, {}, []]}"))
-
+  Command_unix.run (Bench.make_command [Bench.Test.create_indexed ~name:"fused_json" ~args:[
+        0
+      ]
+      fused_json;])
