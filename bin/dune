@@ -2,13 +2,9 @@
  (public_name pag)
  (name main)
  (preprocess
-  (pps ppx_deriving.std))
+  (pps ppx_deriving.ord ppx_deriving.show))
+ (flags
+  (:standard "-open" "Codelib"))
  (ocamlopt_flags
   (:standard "-O3"))
- (libraries dynlink metaocaml flap)
- (modes native))
-
-(env
- (dev
-  (flags
-   (:standard -w -33 -w -37 -w -34 -w -32))))
+ (libraries dynlink metaocaml yojson flap))
